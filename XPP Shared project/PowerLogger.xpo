@@ -1,0 +1,574 @@
+﻿Exportfile for AOT version 1.0 or later
+Formatversion: 1
+
+***Element: DBT
+
+; Microsoft Dynamics AX Table : LogOnDBTable unloaded
+; --------------------------------------------------------------------------------
+  TABLEVERSION 1
+  
+  TABLE #LogOnDBTable
+    EnforceFKRelation 1
+    PROPERTIES
+      Name                #LogOnDBTable
+      Label               #In coordination with PowerLogger library
+      CreateRecIdIndex    #Yes
+      PrimaryIndex        #SurrogateKey
+      ClusterIndex        #SurrogateKey
+      CreatedDateTime     #Yes
+      CreatedBy           #Yes
+      Origin              #{DE0110C8-10FC-4CC6-B2BC-03B605F023CE}
+    ENDPROPERTIES
+    
+    FIELDS
+      FIELD #ErrorMessageText
+        STRING
+        PROPERTIES
+          Name                #ErrorMessageText
+          Table               #LogOnDBTable
+          Origin              #{6C9595A0-CE2F-458A-8927-7880D4C09338}
+          ExtendedDataType    #Notes
+          StringSize          #(Memo)
+        ENDPROPERTIES
+        
+      FIELD #ErrorType
+        STRING
+        PROPERTIES
+          Name                #ErrorType
+          Table               #LogOnDBTable
+          Origin              #{7708C63C-B97A-4122-BF9A-2CFD8DA25011}
+          ExtendedDataType    #Notes
+          StringSize          #(Memo)
+        ENDPROPERTIES
+        
+      FIELD #StatusOfOp
+        ENUM
+        PROPERTIES
+          Name                #StatusOfOp
+          Table               #LogOnDBTable
+          Origin              #{C3319F93-962A-493F-913A-33C5BF1CC071}
+          EnumType            #NoYes
+        ENDPROPERTIES
+        
+      FIELD #Title
+        STRING
+        PROPERTIES
+          Name                #Title
+          HelpText            #Like item number, ID or anything else...
+          Mandatory           #Yes
+          Table               #LogOnDBTable
+          Origin              #{782F1CFD-8C9C-463B-9A9E-A97BA208B38F}
+          ExtendedDataType    #Notes
+          StringSize          #(Memo)
+        ENDPROPERTIES
+        
+    ENDFIELDS
+    GROUPS
+    ENDGROUPS
+    
+    INDICES
+    ENDINDICES
+    FULLTEXTINDICES
+    ENDFULLTEXTINDICES
+    REFERENCES
+    ENDREFERENCES
+    
+    DELETEACTIONS
+    ENDDELETEACTIONS
+    
+    METHODS
+    ENDMETHODS
+  ENDTABLE
+  
+
+***Element: CLS
+
+; Microsoft Dynamics AX Class: IWritable unloaded
+; --------------------------------------------------------------------------------
+  CLSVERSION 1
+  
+  INTERFACE #IWritable
+    PROPERTIES
+      Name                #IWritable
+      Origin              #{B5A52DBE-EF4D-43B8-8A55-033F08D10921}
+    ENDPROPERTIES
+    
+    METHODS
+      SOURCE #classDeclaration
+        #public interface IWritable
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #write
+        #public void write(Notes text, str context="", boolean status=0, Notes title= funcName())
+        #{
+        #}
+      ENDSOURCE
+    ENDMETHODS
+  ENDCLASS
+
+***Element: CLS
+
+; Microsoft Dynamics AX Class: LogOnDB unloaded
+; --------------------------------------------------------------------------------
+  CLSVERSION 1
+  
+  CLASS #LogOnDB
+    PROPERTIES
+      Name                #LogOnDB
+      Origin              #{9074DAE9-139D-4318-BA05-E76504358884}
+    ENDPROPERTIES
+    
+    METHODS
+      SOURCE #classDeclaration
+        #/// <summary>
+        #/// A highly-reusable class for logging in database, both in single mode and and bulk mode.
+        #/// It takes advantage of singleton design pattern for preventing waste of memory
+        #/// It also has the ability to log the PowerDetector::instance().* classes
+        #///
+        #/// Created and maintained By Jalal Derakhshani
+        #/// drakhshani.aram@hotmail.com
+        #/// 2020
+        #/// </summary>
+        #///
+        #class LogOnDB implements IWritable
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #new
+        #private void new()
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #write
+        #/// <summary>
+        #/// This method has the ability to log the entries through a unique connection instance to the AX transactional database in an intact way,
+        #/// so the wrapper transaction getting failed cannot intercept this entries from getting logged.
+        #/// This ensures the user that logging will take place.
+        #/// </summary>
+        #///
+        #public void write(Notes text, str context="", boolean status=0, Notes title= funcName())
+        #{
+        #    LogOnDBTable logOnDBTable;
+        #    utcdatetime                 dateTime;
+        #
+        #    // Error handling
+        #    str                         finalMsg = "";
+        #    SysInfologEnumerator        infoLogEnum;
+        #    SysInfologMessageStruct     infoMessageStruct;
+        #    UserConnection              connection = new UserConnection();
+        #
+        #    dateTime = DateTimeUtil::utcNow();
+        #
+        #    appl.dbSynchronize(tableName2id("LogOnDBTable"), true); // Ensures that the imported table has been synchronized and ready to use.
+        #
+        #    try{
+        #        ttsBegin;
+        #
+        #        logOnDBTable.setConnection(connection);
+        #        logOnDBTable.ttsbegin();
+        #        logOnDBTable.clear();
+        #        logOnDBTable.Title = title;
+        #        logOnDBTable.StatusOfOp = status;
+        #        logOnDBTable.ErrorMessageText = text;
+        #        logOnDBTable.ErrorType = context;
+        #        logOnDBTable.doInsert();
+        #
+        #        logOnDBTable.ttscommit();
+        #
+        #        ttsCommit;
+        #    }catch(Exception::Error){
+        #                infoLogEnum = SysInfologEnumerator::newData(infolog.infologData());
+        #                while(infoLogEnum.moveNext())
+        #                {
+        #                    infoMessageStruct = SysInfologMessageStruct::construct(infoLogEnum.currentMessage());
+        #                    finalMsg+=infoMessageStruct.message();
+        #                }
+        #                logOnDBTable.ttsabort();
+        #                ttsabort;
+        #
+        #        }
+        #}
+      ENDSOURCE
+      SOURCE #instance
+        #public static LogOnDB instance()
+        #{
+        #    LogOnDB   singleton;
+        #    SysGlobalCache  globalCache = infolog.objectOnServer() ? appl.globalCache() : infolog.globalCache();
+        #    ;
+        #
+        #    if (globalCache.isSet(classStr(LogOnDB), 0))
+        #
+        #        singleton = globalCache.get(classStr(LogOnDB), 0);
+        #
+        #    else
+        #    {
+        #        singleton = new LogOnDB();
+        #        infoLog.globalCache().set(classStr(LogOnDB), 0, singleton);
+        #        appl.globalCache().set(classStr(LogOnDB), 0, singleton);
+        #
+        #    }
+        #    return singleton;
+        #}
+      ENDSOURCE
+    ENDMETHODS
+  ENDCLASS
+
+***Element: CLS
+
+; Microsoft Dynamics AX Class: PowerLogger unloaded
+; --------------------------------------------------------------------------------
+  CLSVERSION 1
+  
+  CLASS #PowerLogger
+    PROPERTIES
+      Name                #PowerLogger
+      Origin              #{03BBCA5C-D53E-4E08-97E4-B25D60DD4CA6}
+    ENDPROPERTIES
+    
+    METHODS
+      SOURCE #classDeclaration
+        #/// <summary>
+        #/// A highly-reusable tool for logging in database/event viewer/filing system, all in single mode and and bulk mode.
+        #/// It takes advantage of singleton design pattern for preventing waste of memory
+        #/// It also has the ability to log the PowerDetector::instance().OveralErr() classes
+        #///
+        #/// Created and maintained By Jalal Derakhshani
+        #/// drakhshani.aram@hotmail.com
+        #/// 2020
+        #/// </summary>
+        #///
+        #class PowerLogger
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #LogOnAOSFile
+        #public LogOnAOSFile LogOnAOSFile()
+        #{
+        #    return LogOnAOSFile::instance();
+        #}
+      ENDSOURCE
+      SOURCE #LogOnDB
+        #public LogOnDB LogOnDB()
+        #{
+        #    return LogOnDB::instance();
+        #}
+      ENDSOURCE
+      SOURCE #LogOnEventViewer
+        #public LogOnEventViewer LogOnEventViewer()
+        #{
+        #    return LogOnEventViewer::instance();
+        #}
+      ENDSOURCE
+      SOURCE #new
+        #private void new()
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #instance
+        #public static PowerLogger instance()
+        #{
+        #    PowerLogger   singleton;
+        #    SysGlobalCache  globalCache = infolog.objectOnServer() ? appl.globalCache() : infolog.globalCache();
+        #    ;
+        #
+        #    if (globalCache.isSet(classStr(PowerLogger), 0))
+        #
+        #        singleton = globalCache.get(classStr(PowerLogger), 0);
+        #
+        #    else
+        #    {
+        #        singleton = new PowerLogger();
+        #        infoLog.globalCache().set(classStr(PowerLogger), 0, singleton);
+        #        appl.globalCache().set(classStr(PowerLogger), 0, singleton);
+        #
+        #    }
+        #    return singleton;
+        #}
+      ENDSOURCE
+    ENDMETHODS
+  ENDCLASS
+
+***Element: CLS
+
+; Microsoft Dynamics AX Class: LogOnAOSFile unloaded
+; --------------------------------------------------------------------------------
+  CLSVERSION 1
+  
+  CLASS #LogOnAOSFile
+    PROPERTIES
+      Name                #LogOnAOSFile
+      RunOn               #Server
+      Origin              #{84530CD9-C74A-4DB7-8397-2DE2A69FA36A}
+    ENDPROPERTIES
+    
+    METHODS
+      SOURCE #classDeclaration
+        #class LogOnAOSFile implements IWritable
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #new
+        #private void new()
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #write
+        #public void write(Notes text, str context="", boolean status=0, Notes title= funcName())
+        #{
+        #    Session             s = new Session();
+        #    Filename            fileName, hostFolderName;
+        #    TextIo              textIo;
+        #    str                 userName;
+        #    Set                 permissionSet;
+        #    #File
+        #    ;
+        #    // Set the file path on server
+        #    fileName = @"C:\\DAXDev_Log.txt";
+        #    userName=curUserId();
+        #
+        #    // Set the permission contract for writing to file
+        #    permissionSet =  new Set(Types::Class);
+        #    permissionSet.add(new FileIOPermission(fileName, #IO_APPEND));
+        #
+        #    //Assert the permissions
+        #    CodeAccessPermission::assertMultiple(permissionSet);
+        #
+        #    // Write the content
+        #    textIo = new TextIo(fileName, #IO_APPEND);
+        #    textIo.write(strFmt("%1, %2, %3, %4 | %5", title, text, context, status, userName));
+        #
+        #    // Take back the permissions
+        #    CodeAccessPermission::revertAssert();
+        # }
+      ENDSOURCE
+      SOURCE #instance
+        #public static LogOnAOSFile instance()
+        #{
+        #    LogOnAOSFile   singleton;
+        #    SysGlobalCache  globalCache = infolog.objectOnServer() ? appl.globalCache() : infolog.globalCache();
+        #    ;
+        #
+        #    if (globalCache.isSet(classStr(LogOnAOSFile), 0))
+        #
+        #        singleton = globalCache.get(classStr(LogOnAOSFile), 0);
+        #
+        #    else
+        #    {
+        #        singleton = new LogOnAOSFile();
+        #        infoLog.globalCache().set(classStr(LogOnAOSFile), 0, singleton);
+        #        appl.globalCache().set(classStr(LogOnAOSFile), 0, singleton);
+        #
+        #    }
+        #    return singleton;
+        #}
+      ENDSOURCE
+    ENDMETHODS
+  ENDCLASS
+
+***Element: CLS
+
+; Microsoft Dynamics AX Class: LogOnEventViewer unloaded
+; --------------------------------------------------------------------------------
+  CLSVERSION 1
+  
+  CLASS #LogOnEventViewer
+    PROPERTIES
+      Name                #LogOnEventViewer
+      Origin              #{96D51DDF-3F06-4D73-95E3-68DF01C7CF7A}
+    ENDPROPERTIES
+    
+    METHODS
+      SOURCE #classDeclaration
+        #class LogOnEventViewer implements IWritable
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #new
+        #private void new()
+        #{
+        #}
+      ENDSOURCE
+      SOURCE #write
+        #public void write(Notes text, str context="", boolean status=0, Notes title= funcName())
+        #{
+        #// ------------------------------------------------(c) 2020 Last
+        #// System: Microsoft Dynamics AX For Developers
+        #// Description: متدی جهت لاگ کردن خروجی های ثقیل الصید!
+        #// Parameters:      txt, logType
+        #// Return value:    None
+        #// Exceptions:      None
+        #// Pre-conditions:  None
+        #// Post-conditions: None
+        #// Creator: Jalal Derakhshani
+        #// Creation date:   02.03.2020
+        #// -----------------------------------------------------------------
+        #// -----------------------------------------------------------------
+        #    System.Diagnostics.EventLog eventlog;
+        #    #Define.LogSource("Application")
+        #    #Define.LogName("DAXDev")
+        #
+        #    // check if the log already exists
+        #    if(!System.Diagnostics.EventLog::SourceExists(#LogSource))
+        #    {
+        #        // create new log
+        #        System.Diagnostics.EventLog::CreateEventSource(#LogSource, #LogName);
+        #    }
+        #
+        #    eventlog = new System.Diagnostics.EventLog();
+        #    eventlog.set_Source(#LogSource);
+        #
+        #
+        #    switch(status){
+        #        case 1:
+        #            // write info entry
+        #            eventlog.WriteEntry(strFmt("%1\n %2\n %3\n %4", title, text, context, status));
+        #            break;
+        #        case 0:
+        #            // write error entry
+        #            eventlog.WriteEntry(strFmt("%1\n %2\n %3\n %4", title, text, context, status) +
+        #                "\n\n------------------\n" + con2Str(xSession::xppCallStack()), System.Diagnostics.EventLogEntryType::Error);
+        #            break;
+        #    }
+        #
+        #
+        #}
+      ENDSOURCE
+      SOURCE #instance
+        #public static LogOnEventViewer instance()
+        #{
+        #    LogOnEventViewer   singleton;
+        #    SysGlobalCache  globalCache = infolog.objectOnServer() ? appl.globalCache() : infolog.globalCache();
+        #    ;
+        #
+        #    if (globalCache.isSet(classStr(LogOnEventViewer), 0))
+        #
+        #        singleton = globalCache.get(classStr(LogOnEventViewer), 0);
+        #
+        #    else
+        #    {
+        #        singleton = new LogOnEventViewer();
+        #        infoLog.globalCache().set(classStr(LogOnEventViewer), 0, singleton);
+        #        appl.globalCache().set(classStr(LogOnEventViewer), 0, singleton);
+        #
+        #    }
+        #    return singleton;
+        #}
+      ENDSOURCE
+    ENDMETHODS
+  ENDCLASS
+
+***Element: JOB
+
+; Microsoft Dynamics AX Job: TEST_PowerLogger unloaded
+; --------------------------------------------------------------------------------
+  JOBVERSION 1
+  
+  SOURCE #TEST_PowerLogger
+    #static void TEST_PowerLogger(Args _args)
+    #{
+    #    PowerLogger::instance().LogOnDB().write("Sample error text.", funcName(), 0, "My sample title");
+    #}
+  ENDSOURCE
+  PROPERTIES
+    Origin              #{418FC9BF-39F2-4C26-8323-0BC0391B32C5}
+  ENDPROPERTIES
+  
+
+***Element: PRN
+
+; Microsoft Dynamics AX Project : PowerLogger unloaded
+; --------------------------------------------------------------------------------
+  PROJECTVERSION 2
+  
+  PROJECT #PowerLogger
+  SHARED
+  PROPERTIES
+    Name                #PowerLogger
+    Origin              #{833812E3-D52B-4650-B186-EE9BD4D1A9DA}
+  ENDPROPERTIES
+  
+    PROJECTCLASS ProjectNode
+    GROUP #Tables
+      PROPERTIES
+        Name                #Tables
+        ProjectGroupType    #Tables
+        GroupMask           #
+        PreventEditProperties #No
+      ENDPROPERTIES
+      
+      BEGINNODE
+        FILETYPE 0
+        UTILTYPE 44
+        UTILOBJECTID 105750
+        NODETYPE 204
+        NAME #LogOnDBTable
+      ENDNODE
+      ENDGROUP
+      
+    GROUP #PowerLoggerLibrary
+      PROPERTIES
+        Name                #PowerLoggerLibrary
+        ProjectGroupType    #All
+        GroupMask           #
+        PreventEditProperties #No
+      ENDPROPERTIES
+      
+      BEGINNODE
+        FILETYPE 0
+        UTILTYPE 45
+        UTILOBJECTID 1027525
+        NODETYPE 329
+        NAME #IWritable
+      ENDNODE
+      BEGINNODE
+        FILETYPE 0
+        UTILTYPE 45
+        UTILOBJECTID 1027528
+        NODETYPE 329
+        NAME #LogOnDB
+      ENDNODE
+      BEGINNODE
+        FILETYPE 0
+        UTILTYPE 45
+        UTILOBJECTID 1027541
+        NODETYPE 329
+        NAME #PowerLogger
+      ENDNODE
+      BEGINNODE
+        FILETYPE 0
+        UTILTYPE 45
+        UTILOBJECTID 1027527
+        NODETYPE 329
+        NAME #LogOnAOSFile
+      ENDNODE
+      BEGINNODE
+        FILETYPE 0
+        UTILTYPE 45
+        UTILOBJECTID 1027529
+        NODETYPE 329
+        NAME #LogOnEventViewer
+      ENDNODE
+      ENDGROUP
+      
+    GROUP #Jobs
+      PROPERTIES
+        Name                #Jobs
+        ProjectGroupType    #Jobs
+        GroupMask           #
+        PreventEditProperties #No
+      ENDPROPERTIES
+      
+      BEGINNODE
+        FILETYPE 0
+        UTILTYPE 5
+        UTILOBJECTID 0
+        NODETYPE 215
+        NAME #TEST_PowerLogger
+      ENDNODE
+      ENDGROUP
+      
+  ENDPROJECT
+  
+
+***Element: END
