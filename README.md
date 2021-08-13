@@ -6,7 +6,6 @@ Features:
 * Easy usability: by using of method chaining technique
 
 ## Sample job for using the facility
---------------------------------
 ```csharp
 static void TEST_PowerLogger(Args _args)
 {
