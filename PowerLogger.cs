@@ -7,7 +7,7 @@
 /// drakhshani.aram@hotmail.com
 /// 2020
 /// </summary>
-///
+
 class PowerLogger
 {
 }
